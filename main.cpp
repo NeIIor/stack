@@ -2,13 +2,17 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <math.h>
 #define DEBUG
 #ifdef DEBUG
     #define ON_DEBUG(...) __VA_ARGS__
 #endif
+#define SIZE_STRUCT 48
+#define SIZE_CANARY 8
 #define BASE 4
 #define POISON -666
-#define CANARY -6666
+#define CANARY1 -6666
+#define CANARY2 6667
 #ifndef COLORS_H__
 #define COLORS_H__
 
@@ -16,185 +20,247 @@
 #define GREEN  "\x1B[32m"
 #define WHITE  "\x1B[37m"
 
-#define PRINT_RED(  s, ...) printf (RED   s WHITE, ##__VA_ARGS__)
-#define PRINT_GREEN(s, ...) printf (GREEN s WHITE, ##__VA_ARGS__)
-#define PRINT_ERROR(FILE, s, ...) fprintf(stderr, RED s WHITE, ##__VA_ARGS__)
+#define PRINT_RED(        s, ...) printf (       RED   s WHITE, ##__VA_ARGS__)
+#define PRINT_GREEN(        s, ...) printf (       GREEN s WHITE, ##__VA_ARGS__)
+#define PRINT_ERROR(file, s, ...) fprintf(file, RED   s WHITE, ##__VA_ARGS__) // some to do
 
 #endif //COLORS_H__
 
-enum change {
+/*enum change {
     DECR = -1,
     INCR = 1
-};
+};*/
 
 typedef double type;
 
-enum num_error {
-    p1_fried = 52, // consisitify
-    p2_fried = 52,
-    low_capacity = -2,
-    low_size = -1,
-    no_error = 0,
-    bad_data = 7,
-    bad_stack = 10,
+enum NUM_ERROR {
+    BAD_HASH_T,
+    BAD_HASH_A,
+    P1_FRIED_A,
+    P2_FRIED_A, 
+    P1_FRIED_T, 
+    P2_FRIED_T,
+    BAD_CAPACITY,
+    BAD_SIZE,
+    NO_BADS,
+    BAD_STACK,
+    BAD_DATA,
 };
 
+/*ON_DEBUG(typedef struct debug {
+    const char* name;
+    const char* file;
+    const size_t line;
+    NUM_ERROR err;
+} debug_t;)*/
+
 typedef struct {
-    type parrot1;
+    double parrot1;
     type* data;   
     size_t size;
     size_t capacity;
-    ON_DEBUG (const char* name;) // struct
-    ON_DEBUG (const char* file;)
-    ON_DEBUG (size_t line;)
-    ON_DEBUG (num_error err;)
-    type parrot2;
+    unsigned int h_t;
+    unsigned int h_a; 
+    double parrot2;
 } stack_t;
 
-void init              (stack_t* stk); // add stack to function name
-stack_t push           (stack_t* stk, type num); 
-stack_t* real          (stack_t* stk, enum change param);
-stack_t pop            (stack_t* stk);
-void dtor              (stack_t* stk);
-num_error verify       (stack_t* stk);
-ON_DEBUG(void dump     (stack_t stk, const char* file, const size_t line);)
-void print             (stack_t stk);
+static void stackAlignment                        (stack_t* Stk);
+static void stackInit                             (stack_t* Stk); 
+static stack_t stackPush                          (stack_t* Stk, type num); 
+static stack_t* stackRealloc                      (stack_t* Stk, size_t change);
+static type stackPop                              (stack_t* Stk);
+static void stackDtor                             (stack_t* Stk);
+static NUM_ERROR stackVerify                      (stack_t* Stk);
+static void stackDump                             (stack_t Stk, const char* file, const size_t line);
+static void stackPrint                            (stack_t Stk);
+static inline unsigned int murMurScramble         (unsigned int k);
+static unsigned int murMur                        (const void* ptr, size_t len);
 
 int main () {
-    stack_t stk = {};
-    init(&stk);
-    push(&stk, 2);
-    print(stk);
-    push(&stk, 3);
-    print(stk);
-    pop(&stk);
-    print(stk);
-    dtor(&stk);
+    stack_t Stk = {0};
+    stackInit(&Stk);
+    stackPush(&Stk, 2);
+    stackPrint(Stk);
+    stackPush(&Stk, 3);
+    stackPrint(Stk);
+    stackPop(&Stk);
+    stackPrint(Stk);
+    stackDtor(&Stk);
     return 0;
 }
 
-void init(stack_t* stk) {
-    stk->data = (type*) calloc(BASE, sizeof(type));
-    stk->size = 0;
-    stk->capacity = BASE;
-    stk->parrot1 = CANARY;
-    stk->parrot2 = CANARY;
-    ON_DEBUG(stk->err = no_error);
-    stk->data[0] = CANARY;
-    stk->data[BASE - 1] = CANARY;
+static void stackAlignment (stack_t* Stk) {
+    size_t i = 1;
+    while((size_t) &Stk->data[Stk->capacity] % 8 != 0) {
+        Stk->data[Stk->capacity] = 0;
+        *((double*) ((char*) (&Stk->data[Stk->capacity]) + i)) = CANARY2;
+        i++;
+    }
+}
+
+void stackInit(stack_t* Stk) {
+    Stk->data = (type*) calloc(BASE + 2 * SIZE_CANARY, sizeof(type));
+    if (!Stk->data) {
+        PRINT_ERROR(stderr, "Unluck in allocating memory for Stk->data");   
+    }
+    Stk->size = 0;
+    Stk->capacity = BASE;
+    Stk->parrot1  = CANARY1;
+    Stk->parrot2  = CANARY2;
+
+    Stk->data[0]  = CANARY1;
+    Stk->data[BASE] = CANARY2;
+
+    Stk->data = (type*) ((size_t) Stk->data + SIZE_CANARY);
     for (int i = 1; i < BASE - 1; i++) {
-        stk->data[i] = POISON;
+        Stk->data[i] = POISON;
     }
-    if (verify(stk) != no_error) {
-        dump(*stk, __FILE__, __LINE__);
+
+    // TODO function {
+    Stk->h_t = murMur((const unsigned char*) Stk, SIZE_STRUCT);
+    Stk->h_a = murMur((const unsigned char*) Stk->data - SIZE_CANARY, 
+                                                  Stk->capacity * sizeof(type) + 2 * SIZE_CANARY);
+    // }
+
+    if (stackVerify(Stk) != NO_BADS) {
+        stackDump(*Stk, __FILE__, __LINE__);
     }
 }
 
-stack_t push(stack_t* stk, type num) {
-    if (verify(stk) != no_error) {
-        dump(*stk, __FILE__, __LINE__);
+stack_t stackPush(stack_t* Stk, type num) {
+    if (stackVerify(Stk) != NO_BADS) {
+        stackDump(*Stk, __FILE__, __LINE__);
     }
 
-    if (stk->size == stk->capacity) {
-        stk = real (stk, INCR);
+    if (Stk->size >= Stk->capacity) {
+        Stk = stackRealloc (Stk, 2 /*TODO to constant*/ * Stk->capacity);
     }
-    stk->data[stk->size] = CANARY; // parrot not where supposed to be
-    stk->data[stk->size - 1] = num;
-    stk->size++;
-    if (verify(stk) != no_error) {
-        dump(*stk, __FILE__, __LINE__);
+    Stk->data[Stk->size] = num;
+    Stk->size++;
+
+    Stk->h_t = murMur((const unsigned char*) Stk, SIZE_STRUCT);
+    Stk->h_a = murMur((const unsigned char*) Stk->data - SIZE_CANARY,
+                                                  Stk->capacity * sizeof(type) + 2 * SIZE_CANARY);
+
+    if (stackVerify(Stk) != NO_BADS) {
+        stackDump(*Stk, __FILE__, __LINE__);
     }
-    return *stk;
+    return *Stk;
 }
 
-stack_t* real (stack_t* stk, enum change param) { // cringenaming //cringeenum
-    if (verify(stk) != no_error) {
-        dump(*stk, __FILE__, __LINE__);
+stack_t* stackRealloc (stack_t* Stk, size_t change) {
+    if (stackVerify(Stk) != NO_BADS) {
+        stackDump(*Stk, __FILE__, __LINE__);
     }
 
-    if (param == INCR) {
-        stk->capacity *= 2;
-    } else if (param == DECR) {
-        stk->capacity /= 2;
+    Stk->capacity += change;
+    Stk->data = (type*) ((size_t) realloc((type*) ((size_t) Stk->data - SIZE_CANARY),
+                          Stk->capacity * sizeof(type) + 2 * SIZE_CANARY) + SIZE_CANARY);
+    Stk->data[Stk->capacity] = CANARY2;
+
+    Stk->h_t = murMur((const unsigned char*) Stk, SIZE_STRUCT);
+    Stk->h_a = murMur((const unsigned char*) Stk->data - SIZE_CANARY, 
+                                                  Stk->capacity * sizeof(type) + 2 * SIZE_CANARY);
+
+    if (stackVerify(Stk) != NO_BADS) {
+        stackDump(*Stk, __FILE__, __LINE__);
     }
-    stk->data = (type*) realloc(stk->data, stk->capacity * sizeof(type));
-    if (verify(stk) != no_error) {
-        dump(*stk, __FILE__, __LINE__);
-    }
-    return stk;
+    return Stk;
 }
 
-stack_t pop (stack_t* stk) {
-    if (verify(stk) != no_error) {
-        dump(*stk, __FILE__, __LINE__);
+type stackPop (stack_t* Stk) {
+    if (stackVerify(Stk) != NO_BADS) {
+        stackDump(*Stk, __FILE__, __LINE__);
     }
 
-    if (stk->size <= stk->capacity / 2) {    // change
-        stk = real (stk, DECR);              //return - deleted or not?
+    if (Stk->size <= Stk->capacity / 4) {  
+        Stk = stackRealloc (Stk, Stk->capacity / 4);
     }
-    stk->size--;
-    // move parrots out of the buffer
-    stk->data[stk->size - 1] = CANARY;
-    if (verify(stk) != no_error) {
-        dump(*stk, __FILE__, __LINE__);
+    type res = Stk->data[Stk->size - 1];
+    Stk->data[Stk->size - 1] = POISON;
+    Stk->size--;
+
+    Stk->h_t = murMur((const unsigned char*) Stk, SIZE_STRUCT);
+    Stk->h_a = murMur((const unsigned char*) Stk->data - SIZE_CANARY, 
+                                                  Stk->capacity * sizeof(type) + 2 * SIZE_CANARY);
+
+    if (stackVerify(Stk) != NO_BADS) {
+        stackDump(*Stk, __FILE__, __LINE__);
     }
-    return *stk;
+    return res;
 }
 
-void dtor (stack_t* stk) {
-    if (verify(stk) != no_error) {
-        dump(*stk, __FILE__, __LINE__);
+void stackDtor (stack_t* Stk) {
+    if (stackVerify(Stk) != NO_BADS) {
+        stackDump(*Stk, __FILE__, __LINE__);
     }
 
-    for (int i = 0; i < stk->size; i++) {
-        stk->data[i] = POISON;
+    for (unsigned int i = 0; i < Stk->size; i++) {
+        Stk->data[i] = POISON;
     }
-    free (stk->data);
-    stk->size = POISON;
-    stk->capacity = POISON;
+    free ((type*) ((size_t) Stk->data - SIZE_CANARY));
+    Stk->size = POISON;
+    Stk->capacity = POISON;
 }
 
-ON_DEBUG(void dump (stack_t stk, const char* file, const size_t line) {
-    printf("Data pointer: %p\nSize: %d\nCapacity: %d\nName: %s\nFile: %s\nLine: %u\n", 
-            stk.data, stk.size, stk.capacity, stk.name, file, line);
-})
+void stackDump (stack_t Stk, const char* file, const size_t line) {
+    printf("Data pointer: %p\nSize: %d\nCapacity: %d\nFile: %s\nLine: %u\n",  
+            Stk.data, Stk.size, Stk.capacity, file, line);
+    printf("Left struct canary: %u\nRight struct canary: %u\nLeft array canary: %d\n", Stk.parrot1, Stk.parrot2, 
+            *((int*)((size_t) Stk.data - SIZE_CANARY)));
+    printf("Right array canary: %d\nStruct hash: %u\nArray hash: %u\n",
+            *((int*)((size_t) Stk.data + Stk.capacity)), Stk.h_t, Stk.h_a);
+}
 
-void print(stack_t stk) {
-    for (int i = 0; i < stk.size; i++) {
-        printf("%lf\t", stk.data[i]);
+void stackPrint(stack_t Stk) {
+    for (unsigned int i = 0; i < Stk.size; i++) {
+        printf("%lf\t", Stk.data[i]);
     }
     printf("\n");
 }
 
-num_error verify (stack_t* stk) {
-    if (!stk) {
-        return bad_stack;
-    } else if (!stk->data) {
-        return bad_data;
-    } else if (stk->size < 0) {
-        return low_size;
-    } else if (stk->capacity < 0) {
-        return low_capacity;
-    } else if (stk->parrot1 != CANARY) {
-        return p1_fried;
-    } else if (stk->parrot2 != CANARY) {
-        return p2_fried;
+NUM_ERROR stackVerify (stack_t* Stk) { //выравнивание 
+    if (!Stk->data) {
+        return BAD_DATA;        
+    } else if (!Stk) {
+        return BAD_STACK;
+    } else if (Stk->size > pow(2, 10)) {
+        return BAD_SIZE;
+    } else if (Stk->capacity > pow(2, 10)) {
+        return BAD_CAPACITY;
+    } else if (Stk->parrot1 != CANARY1) { 
+        return P1_FRIED_T;
+    } else if (Stk->parrot2 != CANARY2) {
+        return P2_FRIED_T;
+    } else if (Stk->h_t != murMur((const unsigned char*) Stk, SIZE_STRUCT)) {
+        return BAD_HASH_T;
+    } else if (*((type*)((size_t) Stk->data - SIZE_CANARY)) != CANARY1) {
+        return P1_FRIED_A;
+    } else if (*((type*)((size_t) Stk->data + Stk->capacity * sizeof(type) )) != CANARY2) {
+        return P2_FRIED_A;
+    } else if (Stk->h_a != murMur((const unsigned char*) Stk->data - SIZE_CANARY, 
+               Stk->capacity * sizeof(type) + 2 * SIZE_CANARY)) {
+        return BAD_HASH_A;
+    } else {
+        return NO_BADS;
     }
 }
-static inline unsigned int murmur_32_scramble(unsigned int k) {
+
+static inline unsigned int murMurScramble(unsigned int k) {
     k *= 0xcc9e2d51;
     k = (k << 15) | (k >> 17);
     k *= 0x1b873593;
     return k;
 }
-unsigned int murmur3_32(const unsigned char* key, size_t len, unsigned int seed)
-{
-	unsigned int h = seed;
+
+unsigned int murMur(const void* ptr, size_t len) { // 
+    const unsigned char* key = (const unsigned char*) ptr;
+	unsigned int h = 0;
     unsigned int k;
     for (size_t i = len >> 2; i; i--) {
         memcpy(&k, key, sizeof(int));
         key += sizeof(unsigned int);
-        h ^= murmur_32_scramble(k);
+        h ^= murMurScramble(k);
         h = (h << 13) | (h >> 19);
         h = h * 5 + 0xe6546b64;
     }
@@ -203,7 +269,7 @@ unsigned int murmur3_32(const unsigned char* key, size_t len, unsigned int seed)
         k <<= 8;
         k |= key[i - 1];
     }
-    h ^= murmur_32_scramble(k);
+    h ^= murMurScramble(k);
 	h ^= len;
 	h ^= h >> 16;
 	h *= 0x85ebca6b;
