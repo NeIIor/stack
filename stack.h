@@ -25,17 +25,17 @@ typedef long int type;
 #define SPECIFICATOR "%ld"
 
 enum NUM_ERROR {
-    BAD_HASH_T,
-    BAD_HASH_A,
-    P1_FRIED_A,
-    P2_FRIED_A, 
-    P1_FRIED_T, 
-    P2_FRIED_T,
-    BAD_CAPACITY,
-    BAD_SIZE,
-    NO_BADS,
-    BAD_STACK,
-    BAD_DATA,
+    BAD_HASH_T = 1 << 0,
+    BAD_HASH_A = 1 << 1,
+    P1_FRIED_A = 1 << 2,
+    P2_FRIED_A = 1 << 3, 
+    P1_FRIED_T = 1 << 4, 
+    P2_FRIED_T = 1 << 5,
+    BAD_CAPACITY = 1 << 6,
+    BAD_SIZE = 1 << 7,
+    NO_BADS = 0,
+    BAD_STACK = 1 << 8,
+    BAD_DATA = 1 << 9,
 };
 
 typedef struct {
@@ -53,8 +53,8 @@ stack_t stackPush                   (stack_t* Stk, type num);
 static stack_t* stackRealloc        (stack_t* Stk, size_t change);
 type stackPop                       (stack_t* Stk);
 void stackDtor                      (stack_t* Stk);
-NUM_ERROR stackVerify               (stack_t* Stk);
-void stackDump                      (stack_t Stk, const char* file, const size_t line);
+enum NUM_ERROR stackVerify          (stack_t* Stk);
+void stackDump                      (stack_t* Stk, const char* file, const size_t line);
 void stackPrint                     (stack_t* Stk);
 inline unsigned int murMurScramble  (unsigned int k);
 unsigned int murMur                 (const void* ptr, size_t len);

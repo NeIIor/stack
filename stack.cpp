@@ -40,13 +40,13 @@ void stackInit(stack_t* Stk) {
     recalcHash (Stk);
 
     if (stackVerify(Stk) != NO_BADS) {
-        stackDump(*Stk, __FILE__, __LINE__);
+        stackDump(Stk, __FILE__, __LINE__);
     }
 }
 
 stack_t stackPush(stack_t* Stk, type num) {
     if (stackVerify(Stk) != NO_BADS) {
-        stackDump(*Stk, __FILE__, __LINE__);
+        stackDump(Stk, __FILE__, __LINE__);
     }
 
     if (Stk->size >= Stk->capacity) {
@@ -61,14 +61,14 @@ stack_t stackPush(stack_t* Stk, type num) {
     recalcHash (Stk);
 
     if (stackVerify(Stk) != NO_BADS) {
-        stackDump(*Stk, __FILE__, __LINE__);
+        stackDump(Stk, __FILE__, __LINE__);
     }
     return *Stk;
 }
 
 stack_t* stackRealloc (stack_t* Stk, size_t change) {
     if (stackVerify(Stk) != NO_BADS) {
-        stackDump(*Stk, __FILE__, __LINE__);
+        stackDump(Stk, __FILE__, __LINE__);
     }
 
     Stk->capacity = change;
@@ -84,14 +84,14 @@ stack_t* stackRealloc (stack_t* Stk, size_t change) {
     recalcHash (Stk);
 
     if (stackVerify(Stk) != NO_BADS) {
-        stackDump(*Stk, __FILE__, __LINE__);
+        stackDump(Stk, __FILE__, __LINE__);
     }
     return Stk;
 }
 
 type stackPop (stack_t* Stk) {
     if (stackVerify(Stk) != NO_BADS) {
-        stackDump(*Stk, __FILE__, __LINE__);
+        stackDump(Stk, __FILE__, __LINE__);
     }
 
     if (Stk->size * 4 <= Stk->capacity) {  
@@ -104,14 +104,14 @@ type stackPop (stack_t* Stk) {
     recalcHash (Stk);
 
     if (stackVerify(Stk) != NO_BADS) {
-        stackDump(*Stk, __FILE__, __LINE__);
+        stackDump(Stk, __FILE__, __LINE__);
     }
     return res;
 }
 
 void stackDtor (stack_t* Stk) {
     if (stackVerify(Stk) != NO_BADS) {
-        stackDump(*Stk, __FILE__, __LINE__);
+        stackDump(Stk, __FILE__, __LINE__);
     }
 
     for (unsigned int i = 0; i < Stk->size; i++) {
@@ -122,13 +122,53 @@ void stackDtor (stack_t* Stk) {
     Stk->capacity = POISON;
 }
 
-void stackDump (stack_t Stk, const char* file, const size_t line) {
-    
-    printf("Stack pointer: %p\nData pointer: %p\nSize: %d\nCapacity: %d\nFile: %s\nLine: %u\n"  
-           "Left struct canary: %u\nRight struct canary: %u\nLeft array canary: %u\n"
-           "Right array canary: %u\nStruct hash: %u\nArray hash: %u\n", &Stk, Stk.data, Stk.size, Stk.capacity, file, line, 
-            Stk.parrot1, Stk.parrot2, *((size_t*)((uintptr_t) Stk.data - SIZE_CANARY)),
-            *((size_t*)(Stk.data + Stk.capacity)), Stk.h_t, Stk.h_a);
+void stackDump (stack_t* Stk, const char* file, const size_t line) {
+    res = stackVerify (Stk);
+    printf ("File: %s\nLine: %u\n", file, line);
+    if (res & BAD_STACK) {
+        PRINT_ERROR (stderr, "NULL pointer of stack");                                        //PRINT_ERROR with stderr automatically
+    } else {
+        printf ("Stack pointer: %p\n", Stk);
+        if (res & BAD_SIZE) {
+            PRINT_ERROR (stderr, "Size: %u\n", Stk->size);
+        } else {
+            printf ("Size: %u", Stk->size);
+        }
+        if (res & BAD_CAPACITY) {
+            PRINT_ERROR (stderr, "Capacity: %u\n", Stk->capacity);
+        } else {
+            printf ("Capacity: %u", Stk->capcity);
+        }
+        if (res & BAD_DATA) {
+            PRINT_ERROR (stderr, "Data pointer: %p\n", Stk->data);
+        } else {
+            printf ("Data pointer: %p", Stk->data);
+        }
+        if (res & P1_FRIED_T) {
+            PRINT_ERROR (stderr, "Left struct canary: %u\n", Stk->parrot1);
+        }
+        if (res & P2_FRIED_T) {
+            PRINT_ERROR (stderr, "Right struct canary: %u\n", Stk->parrot2);
+        }
+        if (!(res & BAD_SIZE) && !(res & BAD_DATA)) {
+            printf("Stack elements:");
+            stackPrint (Stk);
+        }
+        if (res & BAD_HASH_T) {
+            PRINT_ERROR (stderr, "Struct hash: %u\n", Stk->h_t);
+        }
+        if (!(res & BAD_CAPACITY) && !(res & BAD_DATA)) {
+            if (res & P1_FRIED_A) {
+                PRINT_ERROR (stderr, "Left array canary: %u\n", *((size_t*)((uintptr_t) Stk->data - SIZE_CANARY)));
+            }
+            if (res & P2_FRIED_A) {
+                PRINT_ERROR (stderr, "Right array canary: %u\n", *((size_t*)(Stk->data + Stk->capacity)));
+            }
+            if (res & BAD_HASH_A) {
+                PRINT_ERROR (stderr, "Array hash: %u\n", Stk->h_a);
+            }
+        }
+    }
 }
 
 void stackPrint(stack_t* Stk) {
@@ -139,31 +179,50 @@ void stackPrint(stack_t* Stk) {
 }
 
 NUM_ERROR stackVerify (stack_t* Stk) {
+    enum NUM_ERROR en1 = NO_BADS, en2 = NO_BADS, en3 = NO_BADS, en4 = NO_BADS, en5 = NO_BADS, 
+                   en6 = NO_BADS, en7 = NO_BADS, en8 = NO_BADS, en9 = NO_BADS, en10 = NO_BADS;
+    enum NUM_ERROR res = 0;
     if (!Stk) {             
-        return BAD_STACK;        
-    } else if (!Stk->data) {
-        return BAD_DATA;
-    } else if (Stk->size > 1 << 10) {
-        return BAD_SIZE;
-    } else if (Stk->capacity > 1 << 10) {
-        return BAD_CAPACITY;
-    } else if (Stk->parrot1 != CANARY1) { 
-        return P1_FRIED_T;
-    } else if (Stk->parrot2 != CANARY2) {
-        return P2_FRIED_T;
-    } else if (Stk->h_t != murMur((const unsigned char*) (uintptr_t) &Stk->parrot1, 
+        res |= BAD_STACK;    // |=    
+    } else { 
+        if (Stk->size > 1 << 10) {
+            res |= BAD_SIZE;
+        } 
+        
+        if(Stk->capacity > 1 << 10) {
+            res |= BAD_CAPACITY;
+        } 
+        
+        if (Stk->parrot1 != CANARY1) { 
+            res |= P1_FRIED_T;
+        }
+        
+        if (Stk->parrot2 != CANARY2) {
+            res |= P2_FRIED_T;
+        } 
+        
+        if (Stk->h_t != murMur((const unsigned char*) (uintptr_t) &Stk->parrot1, 
                       (uintptr_t)&(Stk->h_t) - (uintptr_t)(&Stk->parrot1 + 1))) {
-        return BAD_HASH_T;
-    } else if (*((size_t*)((uintptr_t) Stk->data - SIZE_CANARY)) != CANARY1) {
-        return P1_FRIED_A;
-    } else if (*((size_t*)((uintptr_t) Stk->data + Stk->capacity * sizeof(type) )) != CANARY2) {
-        return P2_FRIED_A;
-    } else if (Stk->h_a != murMur((const unsigned char*) Stk->data, 
+            res |= BAD_HASH_T;
+        } 
+        
+        if (!Stk->data) {
+            res |= BAD_DATA;
+        } 
+        
+        if (!(res & BAD_DATA) && !(res & BAD_CAPACITY)) {
+            
+            if (*((size_t*)((uintptr_t) Stk->data - SIZE_CANARY)) != CANARY1) {
+                res |= P1_FRIED_A;
+            } if (*((size_t*)((uintptr_t) Stk->data + Stk->capacity * sizeof(type) )) != CANARY2) {
+                res |= P2_FRIED_A;
+            } if (Stk->h_a != murMur((const unsigned char*) Stk->data, 
                Stk->capacity * sizeof(type))) {
-        return BAD_HASH_A;
-    } else {
-        return NO_BADS;
-    }
+                res |= BAD_HASH_A;
+            }
+        }
+    } 
+    return res;
 }
 
 inline unsigned int murMurScramble(unsigned int k) {
