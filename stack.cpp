@@ -123,7 +123,7 @@ void stackDtor (stack_t* Stk) {
 }
 
 void stackDump (stack_t* Stk, const char* file, const size_t line) {
-    res = stackVerify (Stk);
+    int res = stackVerify (Stk);
     printf ("File: %s\nLine: %u\n", file, line);
     if (res & BAD_STACK) {
         PRINT_ERROR (stderr, "NULL pointer of stack");                                        //PRINT_ERROR with stderr automatically
@@ -137,7 +137,7 @@ void stackDump (stack_t* Stk, const char* file, const size_t line) {
         if (res & BAD_CAPACITY) {
             PRINT_ERROR (stderr, "Capacity: %u\n", Stk->capacity);
         } else {
-            printf ("Capacity: %u", Stk->capcity);
+            printf ("Capacity: %u", Stk->capacity);
         }
         if (res & BAD_DATA) {
             PRINT_ERROR (stderr, "Data pointer: %p\n", Stk->data);
@@ -178,10 +178,8 @@ void stackPrint(stack_t* Stk) {
     printf("\n");
 }
 
-NUM_ERROR stackVerify (stack_t* Stk) {
-    enum NUM_ERROR en1 = NO_BADS, en2 = NO_BADS, en3 = NO_BADS, en4 = NO_BADS, en5 = NO_BADS, 
-                   en6 = NO_BADS, en7 = NO_BADS, en8 = NO_BADS, en9 = NO_BADS, en10 = NO_BADS;
-    enum NUM_ERROR res = 0;
+int stackVerify (stack_t* Stk) {
+    int res = 0;
     if (!Stk) {             
         res |= BAD_STACK;    // |=    
     } else { 
