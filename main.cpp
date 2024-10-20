@@ -8,11 +8,11 @@ int main () {
     stack_t Stk = {0};
     stackInit(&Stk);
     stackPush(&Stk, 2);
-    stackPrint(&Stk);
+    stackPrintAll(&Stk);
     stackPush(&Stk, 3);
-    stackPrint(&Stk);
+    stackPrintAll(&Stk);
     stackPop(&Stk);
-    stackPrint(&Stk);
+    stackPrintAll(&Stk);
     stackDtor(&Stk);
     return 0;
 }

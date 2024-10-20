@@ -53,11 +53,12 @@ stack_t stackPush                   (stack_t* Stk, type num);
 static stack_t* stackRealloc        (stack_t* Stk, size_t change);
 type stackPop                       (stack_t* Stk);
 void stackDtor                      (stack_t* Stk);
-int stackVerify          (stack_t* Stk);
+int stackVerify                     (stack_t* Stk);
 void stackDump                      (stack_t* Stk, const char* file, const size_t line);
-void stackPrint                     (stack_t* Stk);
+void stackPrintAll                  (stack_t* Stk);
 inline unsigned int murMurScramble  (unsigned int k);
 unsigned int murMur                 (const void* ptr, size_t len);
 void recalcHash                     (stack_t* Stk);
+void stackPrintLast                 (stack_t* Stk);
 
 #endif //FUNC_H__
