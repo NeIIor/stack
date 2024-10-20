@@ -159,12 +159,14 @@ void stackDump (stack_t* Stk, const char* file, const size_t line) {
         }
         if (res & P1_FRIED_T) {
             PRINT_ERROR (stderr, "Left struct canary: %u\n", Stk->parrot1);
+            PRINT_GREEN ("Expected value of left struct canary: %u\n", CANARY1);
         }
         if (res & P2_FRIED_T) {
             PRINT_ERROR (stderr, "Right struct canary: %u\n", Stk->parrot2);
+            PRINT_GREEN ("Expected value of right struct canary: %u\n", CANARY2);
         }
         if (!(res & BAD_SIZE) && !(res & BAD_DATA)) {
-            if (Stk->size <= 10) {
+            if (Stk->size <= MAX_NUM_ELEM) {
                 printf("Stack elements: ");
                 stackPrintAll (Stk);
             } else {
@@ -173,18 +175,23 @@ void stackDump (stack_t* Stk, const char* file, const size_t line) {
         }
         if (res & BAD_HASH_T) {
             PRINT_ERROR (stderr, "Struct hash: %u\n", Stk->h_t);
+            PRINT_GREEN ("Expected value of struct hash: %u\n", murMur((const unsigned char*) (uintptr_t) &Stk->parrot1, 
+                      (uintptr_t) &Stk->h_t - (uintptr_t)(&Stk->parrot1 + 1)));
         }
         if (!(res & BAD_CAPACITY) && !(res & BAD_DATA)) {
             if (res & P1_FRIED_A) {
                 PRINT_ERROR (stderr, "Left array canary: %u\n", *((size_t*)((uintptr_t) Stk->data - SIZE_CANARY)));
+                PRINT_GREEN ("Expected value of left array canary: %u\n", CANARY1);
             }
 
             if (res & P2_FRIED_A) {
                 PRINT_ERROR (stderr, "Right array canary: %u\n", *((size_t*)(Stk->data + Stk->capacity)));
+                PRINT_GREEN ("Expected value of right array canary: %u\n", CANARY2);
             }
 
             if (res & BAD_HASH_A) {
                 PRINT_ERROR (stderr, "Array hash: %u\n", Stk->h_a);
+                PRINT_GREEN ("Expected value of struct hash: %u\n", murMur((const unsigned char*) Stk->data, Stk->capacity * sizeof(type)));
             }
         }
     }
@@ -281,7 +288,7 @@ unsigned int murMur(const void* ptr, size_t len) { //
 }
 
 void stackPrintLast (stack_t* Stk) {
-    for (size_t i = Stk->size - 10; i < Stk->size; i++) {
+    for (size_t i = Stk->size - MAX_NUM_ELEM; i < Stk->size; i++) {
         printf(SPECIFICATOR"\t", Stk->data[i]);
     }
 

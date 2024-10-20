@@ -20,6 +20,7 @@
 #define CANARY1 6666
 #define CANARY2 6667
 #define CAPACITY_MULTIPLIER 2
+#define MAX_NUM_ELEM 10
 
 typedef long int type;
 #define SPECIFICATOR "%ld"
